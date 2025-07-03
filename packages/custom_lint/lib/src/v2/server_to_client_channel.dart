@@ -144,10 +144,19 @@ class SocketCustomLintServerToClientChannel {
   Future<Process?> _startProcess({
     required bool debug,
   }) async {
-    final tempDir = _tempDirectory =
-        Directory.systemTemp.createTempSync('custom_lint_client');
-
     try {
+      final realProjectsPath = _workspace.projects
+          .where((e) => e.isProjectRoot)
+          .map((e) => e.directory.path)
+          .join();
+      final tempDir = _tempDirectory = await Directory(
+        join(
+          Directory.systemTemp.path,
+          'custom_lint_client',
+          const Uuid().v5(Namespace.url.value, realProjectsPath),
+        ),
+      ).create(recursive: true);
+
       await _workspace.resolvePluginHost(tempDir);
       _writeEntrypoint(_workspace.uniquePluginNames, tempDir);
 
