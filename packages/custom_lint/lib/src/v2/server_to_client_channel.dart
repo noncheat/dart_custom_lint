@@ -119,9 +119,11 @@ class SocketCustomLintServerToClientChannel {
         .map(utf8.decode)
         .listen((e) => _server.handleUncaughtError(e, StackTrace.empty));
 
+    print('process checking');
     // Checking process failure _after_ piping stdout/stderr to the log files.
     // This is so that if client failed to boot, logs in it should still be available
     await _checkInitializationFail(process);
+    print('process successful');
 
     await Future.wait([
       sendAnalyzerPluginRequest(_version.toRequest(const Uuid().v4())),
@@ -258,9 +260,31 @@ void main(List<String> args) async {
       ),
     );
 
+    if (request is CustomLintRequestAnalyzerPluginRequest) {
+      final json = jsonDecode(jsonEncode(request.request.toJson()));
+      try {
+        if (json is! Map) throw Exception();
+        final params = json['params']! as Map;
+        final files = params['files']! as Map;
+        files.forEach((key, value) {
+          if (value is Map) value['content'] = '[truncated]';
+        });
+      } catch (e) {/**/}
+      print(['request', json]);
+    }
     await _channel.sendJson(request.toJson());
 
     final response = await matchingResponse;
+    if (response is CustomLintResponseAnalyzerPluginResponse) {
+      final json = jsonDecode(jsonEncode(response.response.toJson()));
+      try {
+        if (json is! Map) throw Exception();
+        final result = json['result']! as Map;
+        if (result['fixes'] is List) result['fixes'] = ['[truncated]'];
+        if (result['assists'] is List) result['assists'] = ['[truncated]'];
+      } catch (e) {/**/}
+      print(['response', json]);
+    }
 
     switch (response) {
       case CustomLintResponseAwaitAnalysisDone():
